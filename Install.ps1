@@ -23,8 +23,8 @@ $shell = $null
 $shell = New-Object -ComObject WScript.Shell
 try {
     $shortcut = $shell.CreateShortcut($startupShortcut)
-    $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\wscript.exe'
-    $shortcut.Arguments = '"{0}"' -f $launcherPath
+    $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $shortcut.Arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $trayScript
     $shortcut.WorkingDirectory = $installDirectory
     $shortcut.Description = 'Display Codex usage in the Windows notification area.'
     $shortcut.Save()

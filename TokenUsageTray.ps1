@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:AppName = 'Codex Token Usage'
-$script:AppVersion = '1.2.0'
+$script:AppVersion = '1.2.1'
 $script:RefreshIntervalMs = 120000
 $script:RpcProcess = $null
 $script:RpcRequestId = 0
@@ -22,7 +22,6 @@ $script:RunValueName = 'CodexTokenUsageTray'
 $script:RunKeyPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
 $script:ScheduledTaskName = 'Codex Token Usage Tray'
 $script:ScriptDirectory = Split-Path -Parent $PSCommandPath
-$script:LauncherPath = Join-Path $script:ScriptDirectory 'LaunchTokenUsageTray.vbs'
 $script:StartupShortcutPath = Join-Path ([Environment]::GetFolderPath('Startup')) 'Codex Token Usage Tray.lnk'
 $script:StateDirectory = Join-Path $env:LOCALAPPDATA 'CodexTokenUsageTray'
 $script:LogPath = Join-Path $script:StateDirectory 'app.log'
@@ -413,8 +412,8 @@ function Set-AutoStartEnabled {
         $shell = New-Object -ComObject WScript.Shell
         try {
             $shortcut = $shell.CreateShortcut($script:StartupShortcutPath)
-            $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\wscript.exe'
-            $shortcut.Arguments = '"{0}"' -f $script:LauncherPath
+            $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+            $shortcut.Arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $PSCommandPath
             $shortcut.WorkingDirectory = $script:ScriptDirectory
             $shortcut.Description = 'Display Codex usage in the Windows notification area.'
             $shortcut.Save()
