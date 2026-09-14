@@ -17,32 +17,21 @@ New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
 Copy-Item -LiteralPath $sourceLauncher -Destination $launcherPath -Force
 Copy-Item -LiteralPath $sourceTrayScript -Destination $trayScript -Force
 
-$startupDirectory = [Environment]::GetFolderPath('Startup')
-$startupShortcut = Join-Path $startupDirectory 'Codex Token Usage Tray.lnk'
-$shell = $null
-$shell = New-Object -ComObject WScript.Shell
-try {
-    $shortcut = $shell.CreateShortcut($startupShortcut)
-    $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $shortcut.Arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $trayScript
-    $shortcut.WorkingDirectory = $installDirectory
-    $shortcut.Description = 'Display Codex usage in the Windows notification area.'
-    $shortcut.Save()
-}
-finally {
-    if ($null -ne $shell) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) }
-}
-
-# Remove older startup methods after migration.
-Unregister-ScheduledTask -TaskName 'Codex Token Usage Tray' -Confirm:$false -ErrorAction SilentlyContinue
+$powershellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$runCommand = '"{0}" -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{1}"' -f $powershellPath, $trayScript
 $runKeyPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
-$runKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($runKeyPath, $true)
+$runKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($runKeyPath)
 try {
-    if ($null -ne $runKey) { $runKey.DeleteValue('CodexTokenUsageTray', $false) }
+    $runKey.SetValue('CodexTokenUsageTray', $runCommand, [Microsoft.Win32.RegistryValueKind]::String)
 }
 finally {
     if ($null -ne $runKey) { $runKey.Dispose() }
 }
+
+# Remove older startup methods after migration.
+Unregister-ScheduledTask -TaskName 'Codex Token Usage Tray' -Confirm:$false -ErrorAction SilentlyContinue
+$startupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'Codex Token Usage Tray.lnk'
+Remove-Item -LiteralPath $startupShortcut -Force -ErrorAction SilentlyContinue
 
 $pidPath = Join-Path $stateDirectory 'app.pid'
 if (Test-Path -LiteralPath $pidPath) {
@@ -55,6 +44,12 @@ if (Test-Path -LiteralPath $pidPath) {
     Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
 }
 
-Start-Process -FilePath $startupShortcut
+Start-Process -FilePath $powershellPath -ArgumentList @(
+    '-NoLogo',
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-WindowStyle', 'Hidden',
+    '-File', ('"{0}"' -f $trayScript)
+)
 
-Write-Output 'Codex Token Usage is installed, running in the system tray, and added to the interactive Windows Startup folder.'
+Write-Output 'Codex Token Usage is installed, running in the system tray, and added to the current user Run startup key.'

@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:AppName = 'Codex Token Usage'
-$script:AppVersion = '1.2.1'
+$script:AppVersion = '1.2.2'
 $script:RefreshIntervalMs = 120000
 $script:RpcProcess = $null
 $script:RpcRequestId = 0
@@ -387,54 +387,48 @@ function Get-UsageColor {
 }
 
 function Get-AutoStartEnabled {
-    if (Test-Path -LiteralPath $script:StartupShortcutPath) {
-        return $true
-    }
-
     $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($script:RunKeyPath, $false)
     try {
-        return $null -ne $key -and $null -ne $key.GetValue($script:RunValueName, $null)
+        if ($null -ne $key -and $null -ne $key.GetValue($script:RunValueName, $null)) {
+            return $true
+        }
     }
     finally {
         if ($null -ne $key) { $key.Dispose() }
     }
+
+    return Test-Path -LiteralPath $script:StartupShortcutPath
 }
 
 function Set-AutoStartEnabled {
     param([bool]$Enabled)
 
     if ($Enabled) {
-        $startupDirectory = Split-Path -Parent $script:StartupShortcutPath
-        if (-not (Test-Path -LiteralPath $startupDirectory)) {
-            New-Item -ItemType Directory -Path $startupDirectory -Force | Out-Null
-        }
-        $shell = $null
-        $shell = New-Object -ComObject WScript.Shell
+        $powershellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $runCommand = '"{0}" -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{1}"' -f $powershellPath, $PSCommandPath
+        $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($script:RunKeyPath)
         try {
-            $shortcut = $shell.CreateShortcut($script:StartupShortcutPath)
-            $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-            $shortcut.Arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f $PSCommandPath
-            $shortcut.WorkingDirectory = $script:ScriptDirectory
-            $shortcut.Description = 'Display Codex usage in the Windows notification area.'
-            $shortcut.Save()
+            $key.SetValue($script:RunValueName, $runCommand, [Microsoft.Win32.RegistryValueKind]::String)
         }
         finally {
-            if ($null -ne $shell) { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell) }
+            if ($null -ne $key) { $key.Dispose() }
         }
+
+        Remove-Item -LiteralPath $script:StartupShortcutPath -Force -ErrorAction SilentlyContinue
     }
     else {
         Remove-Item -LiteralPath $script:StartupShortcutPath -Force -ErrorAction SilentlyContinue
+        $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($script:RunKeyPath, $true)
+        try {
+            if ($null -ne $key) { $key.DeleteValue($script:RunValueName, $false) }
+        }
+        finally {
+            if ($null -ne $key) { $key.Dispose() }
+        }
     }
 
-    # Remove older startup methods after migration.
+    # Remove the unsupported scheduled-task method after migration.
     Unregister-ScheduledTask -TaskName $script:ScheduledTaskName -Confirm:$false -ErrorAction SilentlyContinue
-    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($script:RunKeyPath, $true)
-    try {
-        if ($null -ne $key) { $key.DeleteValue($script:RunValueName, $false) }
-    }
-    finally {
-        if ($null -ne $key) { $key.Dispose() }
-    }
 }
 
 function Update-Tray {

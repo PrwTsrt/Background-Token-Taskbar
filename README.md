@@ -16,7 +16,7 @@ Run:
 powershell.exe -ExecutionPolicy Bypass -File .\Install.ps1
 ```
 
-The installer copies the runtime files into `%LOCALAPPDATA%\CodexTokenUsageTray\app`, launches the utility, and creates a shortcut in the current user's interactive Windows Startup folder. The startup shortcut runs the installed PowerShell tray script directly, so it does not depend on a separate launcher file being present at sign-in. No administrator rights are needed. Windows may initially place the icon in the taskbar overflow menu; drag it onto the visible notification area if you want it shown permanently.
+The installer copies the runtime files into `%LOCALAPPDATA%\CodexTokenUsageTray\app`, launches the utility, and registers it in the current user's Windows `Run` key. This uses the same per-user sign-in mechanism as other background apps and does not depend on the Startup folder or a separate launcher file. No administrator rights are needed. Windows may initially place the icon in the taskbar overflow menu; drag it onto the visible notification area if you want it shown permanently.
 
 ## Test the data source
 
